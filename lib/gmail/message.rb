@@ -1,5 +1,7 @@
 module Gmail
   class Message
+    PREFETCH_ATTRS = ["UID", "ENVELOPE", "BODY.PEEK[]", "FLAGS", "X-GM-LABELS", "X-GM-MSGID", "X-GM-THRID"]
+
     # Raised when given label doesn't exists.
     class NoLabelError < Exception; end 
   
@@ -10,15 +12,35 @@ module Gmail
       @mailbox = mailbox
       @gmail   = mailbox.instance_variable_get("@gmail") if mailbox
     end
+
+    def uid
+      @uid ||= fetch("UID")
+    end
+
+    def msg_id
+      @msg_id ||= fetch("X-GM-MSGID")
+    end
+
+    def envelope
+      @envelope ||= fetch("ENVELOPE")
+    end
+
+    def message
+      @message ||= Mail.new(fetch("BODY[]"))
+    end
         
+    def flags
+      @flags ||= fetch("FLAGS")
+    end
+
     def labels
-      @gmail.conn.uid_fetch(uid, "X-GM-LABELS")[0].attr["X-GM-LABELS"]
+      @labels ||= fetch("X-GM-LABELS")
     end
    
-    def uid
-      @uid ||= @gmail.conn.uid_search(['HEADER', 'Message-ID', message_id])[0]
+    def thread_id
+      @thread_id ||= fetch("X-GM-THRID").to_s(16)
     end
-    
+
     # Mark message with given flag.
     def flag(name)
       !!@gmail.mailbox(@mailbox.name, @mailbox.read_only) { @gmail.conn.uid_store(uid, "+FLAGS", [name]) }
@@ -163,6 +185,18 @@ module Gmail
       })
     end
     alias_method :raw_message, :message
+
+    private
+
+    def fetch(value)
+      @_attrs ||= begin
+        @gmail.mailbox(@mailbox.name) {
+          @gmail.conn.uid_fetch(uid, PREFETCH_ATTRS)[0]
+        }
+      end
+
+      @_attrs.attr[value]
+    end
 
   end # Message
 end # Gmail

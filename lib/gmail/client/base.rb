@@ -13,6 +13,7 @@ module Gmail
       
       attr_reader :username
       attr_reader :options
+      attr_reader :imap
       
       def initialize(username, options={})
         defaults       = { :read_only => false }
@@ -154,7 +155,7 @@ module Gmail
       #   end
       def mailbox(name, read_only = nil, &block)
         @mailbox_mutex.synchronize do
-          name = name.to_s
+          name = labels.localize(name)
           mailbox = (mailboxes[name] ||= Mailbox.new(self, name, read_only_setting(read_only)))
           switch_to_mailbox(name, mailbox.read_only) if @current_mailbox != name
 
